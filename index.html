@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10131c">
+  <title>小組倒數計時器</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: #10131c;
+      color: #f5f7ff;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      --muted: #9da6bd;
+      --panel: #191e2b;
+      --accent: #8d7cff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      background:
+        radial-gradient(ellipse at 76% 44%, rgb(75 66 144 / 18%), transparent 38rem),
+        radial-gradient(ellipse at 6% 4%, rgb(48 105 150 / 12%), transparent 30rem),
+        #10131c;
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .app {
+      width: min(1440px, 100%);
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 40px clamp(20px, 4vw, 56px);
+    }
+
+    .app.is-finished::after {
+      position: fixed;
+      z-index: 10;
+      inset: 0;
+      background: rgb(255 49 69 / 20%);
+      content: "";
+      pointer-events: none;
+      animation: screen-alert 1.2s ease-in-out infinite alternate;
+    }
+
+    @keyframes screen-alert {
+      from { opacity: 0.12; }
+      to { opacity: 0.72; }
+    }
+
+    .settings { margin-bottom: 30px; }
+
+    .eyebrow {
+      margin: 0 0 18px;
+      color: #a99cff;
+      font-size: 0.8rem;
+      font-weight: 750;
+      letter-spacing: 0.17em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.25rem, 4.5vw, 3.55rem);
+      line-height: 1.15;
+      letter-spacing: -0.055em;
+    }
+
+    .intro {
+      margin: 12px 0 22px;
+      color: var(--muted);
+      font-size: 1.02rem;
+      line-height: 1.7;
+    }
+
+    .settings-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .settings-copy { max-width: 700px; }
+
+    .section-label {
+      display: block;
+      margin-bottom: 14px;
+      color: #c5cada;
+      font-size: 0.9rem;
+      font-weight: 650;
+    }
+
+    .mode-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 5px;
+      margin-bottom: 16px;
+      border: 1px solid #303648;
+      border-radius: 14px;
+      background: #171b27;
+    }
+
+    .mode-switch.compact {
+      width: 100%;
+      margin: 0 0 14px;
+    }
+
+    .mode-button {
+      min-height: 44px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 700;
+      cursor: pointer;
+      transition: color 160ms ease, background 160ms ease;
+    }
+
+    .mode-button[aria-pressed="true"] {
+      background: #302b50;
+      color: #fff;
+    }
+
+    .presets {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      margin-bottom: 14px;
+    }
+
+    .preset, .time-input {
+      border: 1px solid #343a4b;
+      border-radius: 12px;
+      background: rgb(255 255 255 / 3%);
+    }
+
+    .preset {
+      min-height: 38px;
+      padding: 7px 8px;
+      color: #e0e3ed;
+      font-size: 0.83rem;
+      cursor: pointer;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    .preset:hover:not(:disabled), .preset.is-selected {
+      border-color: #8576f5;
+      background: rgb(141 124 255 / 13%);
+    }
+
+    .preset:active:not(:disabled) { transform: scale(0.97); }
+
+    .custom-time {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .time-field label {
+      display: block;
+      margin-bottom: 9px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .time-input {
+      width: 100%;
+      height: 44px;
+      padding: 0 10px;
+      outline: none;
+      color: #fff;
+      font-size: 1.1rem;
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .time-input:focus {
+      border-color: #8d7cff;
+      box-shadow: 0 0 0 3px rgb(141 124 255 / 17%);
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .action-button {
+      min-height: 46px;
+      padding: 10px 14px;
+      border: 1px solid transparent;
+      border-radius: 11px;
+      font-size: 0.92rem;
+      font-weight: 750;
+      cursor: pointer;
+      transition: filter 160ms ease, transform 160ms ease, background 160ms ease;
+    }
+
+    .action-button:hover:not(:disabled) { filter: brightness(1.1); }
+    .action-button:active:not(:disabled) { transform: translateY(1px); }
+
+    .primary {
+      background: linear-gradient(115deg, #8b78ff, #6d63ed);
+      box-shadow: 0 9px 28px rgb(111 93 239 / 22%);
+    }
+
+    .secondary {
+      border-color: #3a4051;
+      background: #1b2030;
+      color: #e1e4ef;
+    }
+
+    .fullscreen-button {
+      white-space: nowrap;
+      border-color: #3a4051;
+      background: #1b2030;
+      color: #e1e4ef;
+    }
+
+    button:disabled, input:disabled { cursor: not-allowed; opacity: 0.55; }
+    [hidden] { display: none !important; }
+
+    .hint {
+      min-height: 20px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 0.77rem;
+    }
+    .hint.error { color: #ff929a; }
+
+    .timer-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .team-card {
+      min-width: 0;
+      padding: 20px;
+      border: 1px solid #2b3142;
+      border-radius: 20px;
+      background: linear-gradient(145deg, rgb(29 34 49 / 96%), rgb(22 26 38 / 96%));
+      box-shadow: 0 16px 40px rgb(0 0 0 / 14%);
+      transition: border-color 180ms ease, box-shadow 180ms ease;
+    }
+
+    .team-card.is-finished {
+      border-color: rgb(255 83 100 / 65%);
+      box-shadow: 0 0 32px rgb(255 83 100 / 12%);
+    }
+
+    .team-title {
+      margin: 0 0 16px;
+      font-size: 1.35rem;
+      letter-spacing: -0.03em;
+    }
+
+    .team-content {
+      display: grid;
+      grid-template-columns: minmax(160px, 0.8fr) minmax(220px, 1fr);
+      align-items: center;
+      gap: 18px;
+    }
+
+    .timer-panel {
+      display: grid;
+      place-items: center;
+      min-width: 0;
+    }
+
+    .timer-ring {
+      width: min(100%, 230px);
+      overflow: visible;
+      filter: drop-shadow(0 0 35px rgb(125 99 255 / 13%));
+    }
+
+    .ring-track, .ring-progress {
+      fill: none;
+      stroke-width: 10;
+    }
+
+    .ring-track { stroke: #282d3b; }
+
+    .ring-progress {
+      stroke: url(#ring-gradient);
+      stroke-linecap: round;
+      transform: rotate(-90deg);
+      transform-origin: 160px 160px;
+      transition: stroke-dashoffset 250ms linear, stroke 180ms ease;
+    }
+
+    .timer-ring.is-urgent .ring-progress { stroke: #ff5364; }
+
+    .timer-copy {
+      fill: #fff;
+      font-size: 42px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 760;
+      letter-spacing: -2px;
+      text-anchor: middle;
+    }
+
+    .timer-caption {
+      fill: #aeb5c9;
+      font-size: 10px;
+      font-weight: 650;
+      letter-spacing: 2px;
+      text-anchor: middle;
+    }
+
+    .timer-ring.is-urgent .timer-copy { fill: #ff6875; }
+    .timer-ring.is-urgent .timer-caption { fill: #ff929a; }
+
+    .timer-ring.is-urgent .ring-progress,
+    .timer-ring.is-urgent .timer-copy,
+    .timer-ring.is-urgent .timer-caption {
+      animation: urgent-pulse 700ms ease-in-out infinite alternate;
+    }
+
+    .timer-ring.is-finished .timer-copy { fill: #ff6875; }
+    .timer-ring.is-finished .ring-progress { stroke: #ff5364; }
+    .timer-ring.is-finished .timer-caption { fill: #ff929a; }
+
+    .app:fullscreen {
+      overflow: auto;
+      width: 100vw;
+      max-width: none;
+      min-height: 100vh;
+      padding: 28px clamp(20px, 4vw, 56px);
+      background:
+        radial-gradient(ellipse at 76% 44%, rgb(75 66 144 / 18%), transparent 38rem),
+        radial-gradient(ellipse at 6% 4%, rgb(48 105 150 / 12%), transparent 30rem),
+        #10131c;
+    }
+
+    @keyframes urgent-pulse {
+      from { opacity: 1; }
+      to { opacity: 0.35; }
+    }
+
+    button:focus-visible {
+      outline: 3px solid #b5aaff;
+      outline-offset: 3px;
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        min-height: 100vh;
+        padding: 28px 20px 38px;
+      }
+
+      .timer-grid { grid-template-columns: 1fr; }
+      .team-content { grid-template-columns: minmax(145px, 0.65fr) minmax(190px, 1fr); }
+      .timer-ring { width: min(100%, 210px); }
+      .settings-header { align-items: center; }
+
+      .app:fullscreen {
+        padding: 24px 18px;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .settings-header { align-items: flex-start; }
+      .settings-header .fullscreen-button { padding-inline: 10px; }
+      .team-card { padding: 16px 12px; }
+      .team-content { grid-template-columns: 1fr; gap: 8px; }
+      .timer-ring { width: min(100%, 190px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      .app.is-finished::after {
+        animation: none;
+        opacity: 0.38;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="settings" aria-labelledby="page-title">
+      <div class="settings-header">
+        <div class="settings-copy">
+          <p class="eyebrow">GROUP TIMER</p>
+          <h1 id="page-title">小組計時器</h1>
+          <p class="intro">四組同時開始，各自設定倒數或正數計時。按下開始後，其他組別不受影響。</p>
+        </div>
+        <button class="action-button fullscreen-button" id="fullscreen-button" type="button">全螢幕</button>
+      </div>
+    </section>
+
+    <section class="timer-grid" id="timer-grid" aria-label="四組計時器"></section>
+  </main>
+
+  <script>
+    (() => {
+      const fullscreenButton = document.querySelector("#fullscreen-button");
+      const app = document.querySelector(".app");
+      const timerGrid = document.querySelector("#timer-grid");
+      const circumference = 2 * Math.PI * 137;
+      const timerEntries = [];
+
+      let audioContext = null;
+      const teams = ["第一組", "第二組", "第三組", "第四組"];
+
+      function createTimerCard(name, index) {
+        const card = document.createElement("article");
+        card.className = "team-card";
+        card.dataset.teamIndex = String(index);
+        card.innerHTML = `
+          <h2 class="team-title">${name}</h2>
+          <div class="team-content">
+            <section class="timer-panel" aria-label="${name}計時顯示">
+              <svg class="timer-ring" viewBox="0 0 320 320" role="img" aria-label="${name}倒數計時">
+                <defs>
+                  <linearGradient id="ring-gradient-${index}" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#45d6d0"></stop>
+                    <stop offset="52%" stop-color="#658dff"></stop>
+                    <stop offset="100%" stop-color="#b276ff"></stop>
+                  </linearGradient>
+                </defs>
+                <circle class="ring-track" cx="160" cy="160" r="137"></circle>
+                <circle class="ring-progress" cx="160" cy="160" r="137"></circle>
+                <text class="timer-copy" x="160" y="165">05:00</text>
+                <text class="timer-caption" x="160" y="190">準備開始</text>
+              </svg>
+            </section>
+            <div class="team-controls">
+              <div class="mode-switch compact" role="group" aria-label="${name}計時模式">
+                <button class="mode-button" type="button" data-mode="countdown" aria-pressed="true">倒數</button>
+                <button class="mode-button" type="button" data-mode="stopwatch" aria-pressed="false">正數</button>
+              </div>
+              <div class="countdown-settings">
+                <div class="presets" aria-label="${name}快速設定">
+                  <button class="preset" type="button" data-minutes="1">1 分</button>
+                  <button class="preset" type="button" data-minutes="3">3 分</button>
+                  <button class="preset is-selected" type="button" data-minutes="5">5 分</button>
+                  <button class="preset" type="button" data-minutes="10">10 分</button>
+                  <button class="preset" type="button" data-minutes="15">15 分</button>
+                  <button class="preset" type="button" data-minutes="20">20 分</button>
+                </div>
+                <div class="custom-time">
+                  <div class="time-field">
+                    <label for="minutes-${index}">分鐘</label>
+                    <input class="time-input minutes-input" id="minutes-${index}" type="number" min="0" max="999" step="1" value="5" inputmode="numeric">
+                  </div>
+                  <div class="time-field">
+                    <label for="seconds-${index}">秒數</label>
+                    <input class="time-input seconds-input" id="seconds-${index}" type="number" min="0" max="59" step="1" value="0" inputmode="numeric">
+                  </div>
+                </div>
+              </div>
+              <div class="actions">
+                <button class="action-button primary start-button" type="button">開始</button>
+                <button class="action-button secondary reset-button" type="button">重設</button>
+              </div>
+              <p class="hint status-message" role="status" aria-live="polite">準備好了嗎？</p>
+            </div>
+          </div>`;
+        timerGrid.append(card);
+        const query = (selector) => card.querySelector(selector);
+        return {
+          card,
+          mode: "countdown",
+          state: "idle",
+          duration: 300,
+          remaining: 300,
+          endTime: 0,
+          ticker: null,
+          alarmNodes: [],
+          minutesInput: query(".minutes-input"),
+          secondsInput: query(".seconds-input"),
+          startButton: query(".start-button"),
+          resetButton: query(".reset-button"),
+          statusMessage: query(".status-message"),
+          timerDisplay: query(".timer-copy"),
+          timerCaption: query(".timer-caption"),
+          timerRing: query(".timer-ring"),
+          ringProgress: query(".ring-progress"),
+          presetButtons: [...card.querySelectorAll(".preset")],
+          modeButtons: [...card.querySelectorAll(".mode-button")],
+          countdownSettings: query(".countdown-settings")
+        };
+      }
+
+      teams.forEach((name, index) => timerEntries.push(createTimerCard(name, index + 1)));
+
+      function formatTime(totalSeconds, mode) {
+        const roundedSeconds = mode === "stopwatch" ? Math.floor(totalSeconds) : Math.ceil(totalSeconds);
+        const wholeSeconds = Math.max(0, roundedSeconds);
+        const minutes = Math.floor(wholeSeconds / 60);
+        const seconds = wholeSeconds % 60;
+        return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+      }
+
+      function selectedDuration(timer) {
+        const minutes = Number(timer.minutesInput.value);
+        const seconds = Number(timer.secondsInput.value);
+        if (!Number.isInteger(minutes) || minutes < 0 || minutes > 999 ||
+            !Number.isInteger(seconds) || seconds < 0 || seconds > 59) {
+          return null;
+        }
+        const total = minutes * 60 + seconds;
+        return total > 0 ? total : null;
+      }
+
+      function updatePageAlert() {
+        app.classList.toggle("is-finished", timerEntries.some((timer) => timer.state === "finished"));
+      }
+
+      function updateProgress(timer) {
+        const fraction = timer.mode === "stopwatch"
+          ? (timer.remaining % 60) / 60
+          : timer.duration > 0 ? Math.max(0, Math.min(1, timer.remaining / timer.duration)) : 0;
+        timer.ringProgress.style.strokeDasharray = `${circumference} ${circumference}`;
+        timer.ringProgress.style.strokeDashoffset = String(circumference * (1 - fraction));
+        timer.timerDisplay.textContent = formatTime(timer.remaining, timer.mode);
+        timer.timerRing.setAttribute(
+          "aria-label",
+          `${timer.card.querySelector(".team-title").textContent} ${formatTime(timer.remaining, timer.mode)}`
+        );
+        const urgent = timer.mode === "countdown" && timer.state === "running" && timer.remaining <= 10;
+        timer.timerRing.classList.toggle("is-urgent", urgent);
+        timer.timerRing.classList.toggle("is-finished", timer.mode === "countdown" && timer.state === "finished");
+      }
+
+      function setInputsDisabled(timer, disabled) {
+        const countdownDisabled = disabled || timer.mode !== "countdown";
+        timer.minutesInput.disabled = countdownDisabled;
+        timer.secondsInput.disabled = countdownDisabled;
+        timer.presetButtons.forEach((button) => { button.disabled = countdownDisabled; });
+        timer.modeButtons.forEach((button) => { button.disabled = disabled; });
+        timer.countdownSettings.hidden = timer.mode !== "countdown";
+      }
+
+      function setStatus(timer, message, isError = false) {
+        timer.statusMessage.textContent = message;
+        timer.statusMessage.classList.toggle("error", isError);
+      }
+
+      function prepareAudio(timer) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) return false;
+
+        try {
+          audioContext ??= new AudioContextClass();
+          audioContext.resume().catch((error) => {
+            console.error("無法啟用倒數鬧鈴：", error);
+            if (timer.state === "running") {
+              setStatus(timer, "計時中，但音效尚未啟用，時間到時可能不會響鈴。", true);
+            }
+          });
+          return true;
+        } catch (error) {
+          console.error("無法啟用倒數鬧鈴：", error);
+          return false;
+        }
+      }
+
+      function stopAlarm(timer) {
+        timer.alarmNodes.forEach((node) => {
+          try { node.stop(); } catch (error) {
+            if (!(error instanceof DOMException)) throw error;
+          }
+        });
+        timer.alarmNodes = [];
+      }
+
+      async function playAlarm(timer) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          setStatus(timer, "時間到！此瀏覽器不支援音效播放。");
+          return;
+        }
+
+        try {
+          audioContext ??= new AudioContextClass();
+          await audioContext.resume();
+          const now = audioContext.currentTime;
+          [880, 660, 880, 660, 880].forEach((frequency, index) => {
+            const startAt = now + index * 0.32;
+            const oscillator = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            oscillator.type = "sine";
+            oscillator.frequency.setValueAtTime(frequency, startAt);
+            gain.gain.setValueAtTime(0.0001, startAt);
+            gain.gain.exponentialRampToValueAtTime(0.22, startAt + 0.025);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.24);
+            oscillator.connect(gain);
+            gain.connect(audioContext.destination);
+            oscillator.start(startAt);
+            oscillator.stop(startAt + 0.25);
+            timer.alarmNodes.push(oscillator);
+          });
+        } catch (error) {
+          console.error("無法播放倒數鬧鈴：", error);
+          setStatus(timer, "時間到！音效播放失敗，請確認瀏覽器音效設定。");
+        }
+      }
+
+      function finishTimer(timer) {
+        clearInterval(timer.ticker);
+        timer.ticker = null;
+        timer.remaining = 0;
+        timer.state = "finished";
+        timer.card.classList.add("is-finished");
+        timer.startButton.textContent = "開始";
+        timer.timerCaption.textContent = "時間到！";
+        setInputsDisabled(timer, false);
+        setStatus(timer, "時間到！請準備分享成果。");
+        updateProgress(timer);
+        updatePageAlert();
+        playAlarm(timer);
+      }
+
+      function tick(timer) {
+        timer.remaining = timer.mode === "stopwatch"
+          ? Math.max(0, (Date.now() - timer.endTime) / 1000)
+          : Math.max(0, (timer.endTime - Date.now()) / 1000);
+        if (timer.mode === "countdown" && timer.remaining <= 0) {
+          finishTimer(timer);
+          return;
+        }
+        updateProgress(timer);
+      }
+
+      function startTimer(timer) {
+        if (timer.state === "running") {
+          timer.remaining = timer.mode === "stopwatch"
+            ? Math.max(0, (Date.now() - timer.endTime) / 1000)
+            : Math.max(0, (timer.endTime - Date.now()) / 1000);
+          clearInterval(timer.ticker);
+          timer.ticker = null;
+          timer.state = "paused";
+          timer.startButton.textContent = "繼續";
+          timer.timerCaption.textContent = "已暫停";
+          setInputsDisabled(timer, true);
+          setStatus(timer, "計時已暫停。");
+          updateProgress(timer);
+          return;
+        }
+
+        if (timer.state === "paused") {
+          timer.state = "running";
+          timer.endTime = timer.mode === "stopwatch"
+            ? Date.now() - timer.remaining * 1000
+            : Date.now() + timer.remaining * 1000;
+        } else {
+          if (timer.mode === "countdown") {
+            const chosenDuration = selectedDuration(timer);
+            if (chosenDuration === null) {
+              setStatus(timer, "請輸入有效時間（分鐘 0–999、秒數 0–59，且總時間需大於 0）。", true);
+              return;
+            }
+            timer.duration = chosenDuration;
+            timer.remaining = timer.duration;
+            timer.endTime = Date.now() + timer.remaining * 1000;
+            stopAlarm(timer);
+            timer.card.classList.remove("is-finished");
+          } else {
+            timer.duration = 0;
+            timer.remaining = 0;
+            timer.endTime = Date.now();
+          }
+          timer.state = "running";
+        }
+        updatePageAlert();
+
+        const soundReady = timer.mode === "countdown" ? prepareAudio(timer) : true;
+        timer.timerCaption.textContent = timer.mode === "stopwatch" ? "正數計時" : "剩餘時間";
+        timer.startButton.textContent = "暫停";
+        setInputsDisabled(timer, true);
+        setStatus(
+          timer,
+          timer.mode === "stopwatch"
+            ? "正數計時中。"
+            : soundReady
+              ? "計時中，專心討論吧！時間到會響鈴。"
+              : "計時中，但音效未啟用，時間到時可能不會響鈴。",
+          timer.mode === "countdown" && !soundReady
+        );
+        updateProgress(timer);
+        clearInterval(timer.ticker);
+        timer.ticker = setInterval(() => tick(timer), 100);
+      }
+
+      function resetTimer(timer) {
+        clearInterval(timer.ticker);
+        timer.ticker = null;
+        stopAlarm(timer);
+        const chosenDuration = timer.mode === "countdown" ? selectedDuration(timer) : 0;
+        timer.duration = chosenDuration ?? 0;
+        timer.remaining = timer.duration;
+        timer.state = "idle";
+        timer.card.classList.remove("is-finished");
+        timer.startButton.textContent = "開始";
+        timer.timerCaption.textContent = timer.mode === "stopwatch" ? "正數計時" : "準備開始";
+        setInputsDisabled(timer, false);
+        setStatus(
+          timer,
+          timer.mode === "stopwatch"
+            ? "按下開始即可開始。"
+            : chosenDuration === null
+              ? "請設定大於 0 的時間。"
+              : "準備好了嗎？按下開始吧。",
+          timer.mode === "countdown" && chosenDuration === null
+        );
+        updateProgress(timer);
+        updatePageAlert();
+      }
+
+      function switchMode(timer, nextMode) {
+        if (timer.state === "running" || timer.state === "paused" || timer.mode === nextMode) return;
+        timer.mode = nextMode;
+        timer.modeButtons.forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.mode === timer.mode));
+        });
+        resetTimer(timer);
+        if (timer.mode === "countdown") previewInput(timer);
+      }
+
+      async function toggleFullscreen() {
+        try {
+          if (document.fullscreenElement) {
+            await document.exitFullscreen();
+          } else {
+            await document.querySelector(".app").requestFullscreen();
+          }
+        } catch (error) {
+          console.error("無法切換全螢幕：", error);
+          setStatus(timerEntries[0], "無法切換全螢幕，請確認瀏覽器是否允許此功能。", true);
+        }
+      }
+
+      function syncFullscreenButton() {
+        const isFullscreen = Boolean(document.fullscreenElement);
+        fullscreenButton.textContent = isFullscreen ? "退出全螢幕" : "全螢幕";
+        fullscreenButton.setAttribute("aria-label", isFullscreen ? "退出全螢幕" : "進入全螢幕");
+      }
+
+      function previewInput(timer) {
+        if (timer.state !== "idle") return;
+        const chosenDuration = selectedDuration(timer);
+        timer.duration = chosenDuration ?? 0;
+        timer.remaining = timer.duration;
+        timer.presetButtons.forEach((button) => {
+          button.classList.toggle("is-selected", chosenDuration === Number(button.dataset.minutes) * 60);
+        });
+        if (chosenDuration === null) {
+          timer.timerCaption.textContent = "請設定時間";
+          setStatus(timer, "請輸入大於 0 的有效時間。", true);
+        } else {
+          timer.timerCaption.textContent = "準備開始";
+          setStatus(timer, "準備好了嗎？按下開始吧。");
+        }
+        updateProgress(timer);
+      }
+
+      timerEntries.forEach((timer) => {
+        timer.presetButtons.forEach((button) => {
+          button.addEventListener("click", () => {
+            timer.minutesInput.value = button.dataset.minutes;
+            timer.secondsInput.value = "0";
+            previewInput(timer);
+          });
+        });
+        timer.modeButtons.forEach((button) => {
+          button.addEventListener("click", () => switchMode(timer, button.dataset.mode));
+        });
+        timer.minutesInput.addEventListener("input", () => previewInput(timer));
+        timer.secondsInput.addEventListener("input", () => previewInput(timer));
+        timer.startButton.addEventListener("click", () => startTimer(timer));
+        timer.resetButton.addEventListener("click", () => resetTimer(timer));
+        timer.ringProgress.style.stroke = `url(#ring-gradient-${timer.card.dataset.teamIndex})`;
+        previewInput(timer);
+      });
+
+      fullscreenButton.addEventListener("click", toggleFullscreen);
+      document.addEventListener("fullscreenchange", syncFullscreenButton);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+          timerEntries.forEach((timer) => {
+            if (timer.state === "running") tick(timer);
+          });
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        const target = event.target;
+        const isEditing = target instanceof HTMLElement &&
+          (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+        if (isEditing || target instanceof HTMLElement && target.closest("button") ||
+            event.altKey || event.ctrlKey || event.metaKey) return;
+
+        if (event.code === "Space") {
+          event.preventDefault();
+          const activeCard = target instanceof HTMLElement ? target.closest(".team-card") : null;
+          const timer = timerEntries.find((entry) => entry.card === activeCard) ?? timerEntries[0];
+          startTimer(timer);
+        } else if (event.key.toLowerCase() === "r") {
+          event.preventDefault();
+          const activeCard = target instanceof HTMLElement ? target.closest(".team-card") : null;
+          const timer = timerEntries.find((entry) => entry.card === activeCard) ?? timerEntries[0];
+          resetTimer(timer);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
